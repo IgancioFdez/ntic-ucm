@@ -29,10 +29,3 @@ This README would normally document whatever steps are necessary to get your app
 * Other community or team contact
 
 
-1) FORMA
-
-(base) C:\Users\ifernandez\Documents\master\Python\tfm>python tfm_twitter.py
-
-2) FORMA
-
-(base) C:\Users\ifernandez\Documents\master\Python\tfm>script.bat
