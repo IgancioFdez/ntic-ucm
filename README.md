@@ -1,31 +1,27 @@
 # README #
 
-This README would normally document whatever steps are necessary to get your application up and running.
+Descripción de los directorios
 
-### What is this repository for? ###
+### code
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+* Por cada Function Cloud de la ETL, se incluyen los scripts. 
 
-### How do I get set up? ###
+### conf
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+* Por cada Function Cloud de la ETL, se incluyen los ficheros adicionales necesarios para poder ejecutarlos. 
+* Estos ficheros se deben poner al mismo nivel que el script.
 
-### Contribution guidelines ###
+### data
 
-* Writing tests
-* Code review
-* Other guidelines
+* Contiene los tweets recopilados para el sistema.
+* la carpeta data/json/tweets/raw ==> contiene los tweets en bruto recopilados.
+* la carpeta data/json/tweets/unified ==> contiene los tweets normalizados.
 
-### Who do I talk to? ###
+### video
 
-* Repo owner or admin
-* Other community or team contact
+* Incluye el zip con el video de presentación del sistema.
 
+### biquery
+
+* Incluye un fichero con consultas para lanzar sobre BigQuery.
 

@@ -1,0 +1,47 @@
+#Número de Tweets totales por País
+SELECT tweet_country as Pais,count(*) as Tweetstotales  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` GROUP BY tweet_country ORDER BY count(*) DESC
+
+#Número de Tweets totales por País en cada Fecha
+SELECT tweet_country as Pais,tweet_date as Fecha, count(*) as Tweetstotales  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` GROUP BY tweet_country,tweet_date ORDER BY tweet_country,tweet_date ASC
+
+#Número de Tweets totales por Fecha de cada País
+SELECT tweet_country as Pais,tweet_date as Fecha, count(*) as Tweetstotales  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` GROUP BY tweet_country,tweet_date ORDER BY tweet_date ASC,tweet_country
+
+#Número de Tweets total
+SELECT count(*)  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test`
+
+#Número de Tweets en inglés
+SELECT count(*)  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` WHERE tweet_language like 'en'
+
+#Número de Tweets en español
+SELECT count(*)  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` WHERE tweet_language like 'es'
+
+#Tweets en inglés
+SELECT *  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` WHERE tweet_language like 'en'
+
+#Tweets en español
+SELECT *  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` WHERE tweet_language like 'es'
+
+#Sentimiento Total por País
+SELECT tweet_country as Pais, sum(tweet_sentiment) as Sentimiento  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` GROUP BY tweet_country ORDER BY sum(tweet_sentiment) DESC
+
+#Sentimiento Total por País en cada Fecha
+SELECT tweet_country as Pais,tweet_date as Fecha, sum(tweet_sentiment) as Sentimiento  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` GROUP BY tweet_country,tweet_date ORDER BY tweet_country,tweet_date ASC
+
+#Sentimiento Total por Fecha de cada País
+SELECT tweet_country as Pais,tweet_date as Fecha, sum(tweet_sentiment) as Sentimiento  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` GROUP BY tweet_country,tweet_date ORDER BY tweet_date ASC, tweet_country
+
+#Sentimiento y Número de Tweets por País para una Fecha dada
+SELECT tweet_country as Pais,tweet_date as Fecha, sum(tweet_sentiment) as Sentimiento , count(*) as Totales FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` WHERE tweet_date like '2022-11-19 00:00:00' GROUP BY tweet_country,tweet_date ORDER BY tweet_country,tweet_date ASC
+
+#Detalle de Sentimiento para un País dado y una Fecha dada
+SELECT tweet_country as Pais,tweet_date as Fecha, tweet_sentiment as Sentimiento  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` WHERE tweet_country like 'alemania' AND tweet_date like '2022-11-14 00:00:00' ORDER BY tweet_country,tweet_date ASC
+
+#Tweets de una País
+SELECT * FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` WHERE tweet_country like 'espana' ORDER BY tweet_date ASC
+
+#Tweets de una País en una Fecha dada
+SELECT * FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` WHERE tweet_country like 'argentina' AND tweet_date like '2022-11-20 00:00:00'
+
+#Ranking de Países por Senitmiento para una Fecha dada
+SELECT tweet_country as Pais,tweet_date as Fecha, sum(tweet_sentiment) as Sentimiento  FROM `my-test-project-379108.tweets_wc_ntic_master.tweets_test` WHERE tweet_date like '2022-11-19 00:00:00' GROUP BY tweet_country,tweet_date ORDER BY sum(tweet_sentiment) DESC
