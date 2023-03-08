@@ -21,7 +21,7 @@ Descripción de los directorios
 
 * Incluye el zip con el video de presentación del sistema.
 
-### biquery
+### bigquery
 
 * Incluye un fichero con consultas para lanzar sobre BigQuery.
 

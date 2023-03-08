@@ -1,24 +1,22 @@
 # -*- coding: utf-8 -*-
 
-#import os
+import os
 import base64
 import functions_framework
 import time
 import json
 from concurrent.futures import TimeoutError
 from google.cloud import pubsub_v1
+from google.cloud import storage
 import pandas as pd
 import re
 import configparser
 
 
-# Global properties
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'../test/my-test-project-379108-c38ac66b0cd0.json'
 PROPERTIES_FILE_NAME = 'ConfigFile_normalizar.properties'
 project_id = "my-test-project-379108"
 topic_id = "test-project-topic-transformar"
-subscription_id="test-project-topic-ntic-normalizar-sub"
-
+bucket_id = "my-test-project-bucket-ntic"
 publisher = pubsub_v1.PublisherClient()
 topic_path = publisher.topic_path(project_id, topic_id)
 
@@ -40,14 +38,39 @@ def get_properties(name):
 	props["teams"]=teams
 	return props
 
-# Function to load tweets from file
+# Function to get file from bucket
+def read_cs_file(bucket_name,file_name): 
+	storage_client = storage.Client()
+	#logging.info('Meensaje con ID: ' + storage_client)
+	
+	# get bucket with name
+	bucket = storage_client.get_bucket(bucket_name)
+	# get bucket data as blob
+	blob = bucket.get_blob(file_name)
+
+	file=blob.download_as_string()
+	#print(file) 
+	#downloaded_blob = blob.download_as_text()
+	file = file.decode("utf-8")
+
+	#print(json.loads(file))
+	tweets=json.loads(file)
+	#print(len(tweets))
+
+	return tweets
+
+# Function to save tweets to normalize
 def get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,country):
 	column_names=["Tweet_Id","Date","Time","Tweet","Language","Mentions","Replies_Count","Retweets_Count","Likes_Count","Hashtags","Cashtags","Link","Country"]
 	df=pd.DataFrame(data=None,columns=column_names,index=None)
 	
+	f=-1
+	f=read_cs_file(bucket_name,path_file_twint)
+	if f == -1:
+		f=read_cs_file(bucket_name,path_file_sns)
 	try:
-		print("[TWINT] Ruta Fichero : "+path_file_twint)
-		with open(path_file_twint, "r",encoding='utf-8') as file:
+		#print("[TWINT] Ruta Fichero : "+path_file_twint)
+		with open(f, "r",encoding='utf-8') as file:
 			lines = file.readlines()
 			#print("["+path_file_twint+"]"+"Tweets en el fichero : "+str(len(lines)))
 			cont=0
@@ -80,12 +103,13 @@ def get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,c
 			if cont>0:
 				with open(path_file_result, 'w', encoding='utf-8') as file:
 					df.to_json(file, orient='records', force_ascii=False)
-			#print("["+path_file_twint+"]"+"Tweets válidos : "+str(cont))
+				write_cs_files(bucket_id,path_file_result,file)
+			#print("["+path_file_twint+"]"+"Tweets validos : "+str(cont))
 			
 	except Exception:
 		print("[SNS] Ruta Fichero : "+path_file_sns)
 		try:
-			with open(path_file_sns, "r",encoding='utf-8') as file:
+			with open(f, "r",encoding='utf-8') as file:
 				data = json.dumps(file.read())
 				#print(data)
 				#print(type(data))
@@ -140,37 +164,48 @@ def get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,c
 				if cont>0:
 					with open(path_file_result, 'w', encoding='utf-8') as file:
 						df.to_json(file, orient='records', force_ascii=False)
-				#print("["+path_file_sns+"]"+"Tweets válidos : "+str(cont))
+					write_cs_files(bucket_id,path_file_result,file)
+				#print("["+path_file_sns+"]"+"Tweets validos : "+str(cont))
 
 		except Exception:
 			print('File does not exist')
 
-# Function to load tweets from file		
-def normalizeTweetsFiles(props,origin_path,destination_path,folder):
+# Function to load tweets to normalize		
+def normalizeTweetsFiles(props,origin_path,destination_path):
+    
 	for country in props["teams"]:
 		for language in props["teams"][country]["languages"]:
-			path_file_twint=origin_path+"/"+"twint_tweets_"+country+"_"+language+"_"+folder+".json"
-			path_file_sns=origin_path+"/"+"snscrape_tweets_"+country+"_"+language+"_"+folder+".json"
-			path_file_result=destination_path+"/"+"tweets_"+country+"_"+language+"_"+folder+".json"
+			path_file_twint=origin_path+"\\"+"twint_tweets_"+country+"_"+language+"_"+props["folder_name"]+".json"
+			path_file_sns=origin_path+"\\"+"snscrape_tweets_"+country+"_"+language+"_"+props["folder_name"]+".json"
+			path_file_result=destination_path+"\\"+"tweets_"+country+"_"+language+"_"+props["folder_name"]+".json"
 			#print(path_file_twint)
 			#print(path_file_sns)
 			#print(path_file_result)
+			
+			get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,country)
 
-			#get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,country)
+# Function that write to cloud storage
+def write_cs_files(bucket_name, destination_file_name , file): 
+ 	storage_client = storage.Client()
+ 	bucket = storage_client.bucket(bucket_name)
+ 	blob = bucket.blob(destination_file_name)
+ 	with open('./json_data.json', 'w', encoding='utf-8') as outfile:
+		outfile.write(json.dumps(file))
+ 	blob.upload_from_filename(outfile.name)
+ 	os.remove('./json_data.json')
+ 	return True
 		
 # Function that sends to topic
 def send_pubsub_message(data): 
-	data=json.loads(data)
-	data=data["data"]
-	payload = {"data" : data, "timestamp": time.time()}
-	data = json.dumps(payload).encode("utf-8")  
-	# When you publish a message, the client returns a future.
-	future1 = publisher.publish(topic_path, data=data)
-	#print(future1.result())
+ 	payload = {"data" : data, "timestamp": time.time()}
+ 	data = json.dumps(payload).encode("utf-8")  
+
+ 	# When you publish a message, the client returns a future.
+ 	future1 = publisher.publish(topic_path, data=data)
+ 	#print(future1.result())
 
 @functions_framework.cloud_event
 def app(cloud_event):			              
-#def app():
 	# Print out the data from Pub/Sub, to prove that it worked
 	data=base64.b64decode(cloud_event.data["message"]["data"])
 	data=data.decode("utf-8")
@@ -206,10 +241,7 @@ def app(cloud_event):
 	#print ("The normalized json destination directory is %s" % destination_path)
 
 	#Normalize tweets files
-	#normalizeTweetsFiles(props,origin_path,destination_path,folder)
+	normalizeTweetsFiles(props,origin_path,destination_path,folder)
 
 	#Send message to topic
 	send_pubsub_message(folder)
-
-# if __name__ == '__main__':
-# 	app()
