@@ -1,64 +1,46 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Feb 23 09:33:25 2023
 
-@author: ifernandez
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Nov  4 16:26:14 2022
-
-@author: ifernandez
-"""
-###C:\Users\ifernandez\Documents\master\Python\tfm-ucm\code\functions\normaliza python tfm_normalizer.py
-##C:\Users\ifernandez\Documents\master\Python\tfm>python tfm_normalizer.py json\selecciones\2022-11-20 2022-11-20
-##python tfm_normalizer.py json\selecciones\2022-11-22 2022-11-22 > C:\Users\ifernandez\Documents\master\Python\tfm\json\selecciones\2022-11-22\logs.txt
-##C:\Users\ifernandez\Documents\master\Python\tfm-ucm\code\functions\normaliza>python tfm_normalizer.py
-##valid json ==> cat fichero.json | python -m json.tool
-import os
-import datetime
+#import os
+import base64
+import functions_framework
+import time
 import json
-from datetime import datetime, timedelta
-import sys
+from concurrent.futures import TimeoutError
+from google.cloud import pubsub_v1
 import pandas as pd
 import re
 import configparser
-#from google.cloud import pubsub_v1
 
+
+# Global properties
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'../test/my-test-project-379108-c38ac66b0cd0.json'
 PROPERTIES_FILE_NAME = 'ConfigFile_normalizar.properties'
-# TODO(developer)
-# project_id = "your-project-id"
-# topic_id = "your-topic-id"
+project_id = "my-test-project-379108"
+topic_id = "test-project-topic-transformar"
+subscription_id="test-project-topic-ntic-normalizar-sub"
 
+publisher = pubsub_v1.PublisherClient()
+topic_path = publisher.topic_path(project_id, topic_id)
 
-def getProperties(name):
-	
-	#INIT#
+# Function to load properties
+def get_properties(name):
 	config = configparser.RawConfigParser()
 	config.read(name, encoding='utf-8')
-	  
 	props={}
-	  
 	props["countries"]=str(config.get('GlobalTagsSection', 'gltags.countries')).split(";")
 	props["data_path"]=config.get('GlobalTagsSection', 'gltags.data.path')
 	props["origin_folder"]=config.get('GlobalTagsSection', 'gltags.origin.folder')
 	props["destination_folder"]=config.get('GlobalTagsSection', 'gltags.destination.folder')
-	props["folder_name"]=config.get('GlobalTagsSection', 'gltags.folder.name')
-	
 	teams={}
-	
 	for country in props["countries"]:
 		team={}
 		team["name"]=str(config.get('TeamsTagsSection', 'tmtags.'+country+'.team'))
 		team["languages"]=str(config.get('TeamsTagsSection', 'tmtags.'+country+'.languages')).split(";")
 		teams[country]=team 
-	
 	props["teams"]=teams
-	
 	return props
 
-
+# Function to load tweets from file
 def get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,country):
 	column_names=["Tweet_Id","Date","Time","Tweet","Language","Mentions","Replies_Count","Retweets_Count","Likes_Count","Hashtags","Cashtags","Link","Country"]
 	df=pd.DataFrame(data=None,columns=column_names,index=None)
@@ -67,7 +49,7 @@ def get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,c
 		print("[TWINT] Ruta Fichero : "+path_file_twint)
 		with open(path_file_twint, "r",encoding='utf-8') as file:
 			lines = file.readlines()
-			print("["+path_file_twint+"]"+"Tweets en el fichero : "+str(len(lines)))
+			#print("["+path_file_twint+"]"+"Tweets en el fichero : "+str(len(lines)))
 			cont=0
 			for line in lines:
 				#data = file.read()
@@ -98,7 +80,7 @@ def get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,c
 			if cont>0:
 				with open(path_file_result, 'w', encoding='utf-8') as file:
 					df.to_json(file, orient='records', force_ascii=False)
-			print("["+path_file_twint+"]"+"Tweets válidos : "+str(cont))
+			#print("["+path_file_twint+"]"+"Tweets válidos : "+str(cont))
 			
 	except Exception:
 		print("[SNS] Ruta Fichero : "+path_file_sns)
@@ -126,7 +108,7 @@ def get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,c
 				#print(yrs_string)
 				data = data.split("|")
 				
-				print("["+path_file_sns+"]"+"Tweets en el fichero : "+str(len(data)))
+				#print("["+path_file_sns+"]"+"Tweets en el fichero : "+str(len(data)))
 				cont=0
 				for i in data:
 					# parse x:
@@ -158,53 +140,76 @@ def get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,c
 				if cont>0:
 					with open(path_file_result, 'w', encoding='utf-8') as file:
 						df.to_json(file, orient='records', force_ascii=False)
-				print("["+path_file_sns+"]"+"Tweets válidos : "+str(cont))
+				#print("["+path_file_sns+"]"+"Tweets válidos : "+str(cont))
 
 		except Exception:
 			print('File does not exist')
-		
-def normalizeTweetsFiles(props,origin_path,destination_path):
-    
+
+# Function to load tweets from file		
+def normalizeTweetsFiles(props,origin_path,destination_path,folder):
 	for country in props["teams"]:
 		for language in props["teams"][country]["languages"]:
-			path_file_twint=origin_path+"\\"+"twint_tweets_"+country+"_"+language+"_"+props["folder_name"]+".json"
-			path_file_sns=origin_path+"\\"+"snscrape_tweets_"+country+"_"+language+"_"+props["folder_name"]+".json"
-			path_file_result=destination_path+"\\"+"tweets_"+country+"_"+language+"_"+props["folder_name"]+".json"
+			path_file_twint=origin_path+"/"+"twint_tweets_"+country+"_"+language+"_"+folder+".json"
+			path_file_sns=origin_path+"/"+"snscrape_tweets_"+country+"_"+language+"_"+folder+".json"
+			path_file_result=destination_path+"/"+"tweets_"+country+"_"+language+"_"+folder+".json"
 			#print(path_file_twint)
 			#print(path_file_sns)
 			#print(path_file_result)
-			
-			get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,country)
+
+			#get_data_from_file(path_file_twint,path_file_sns,path_file_result,language,country)
 		
-                        
-def app():
-    
+# Function that sends to topic
+def send_pubsub_message(data): 
+	data=json.loads(data)
+	data=data["data"]
+	payload = {"data" : data, "timestamp": time.time()}
+	data = json.dumps(payload).encode("utf-8")  
+	# When you publish a message, the client returns a future.
+	future1 = publisher.publish(topic_path, data=data)
+	#print(future1.result())
+
+@functions_framework.cloud_event
+def app(cloud_event):			              
+#def app():
+	# Print out the data from Pub/Sub, to prove that it worked
+	data=base64.b64decode(cloud_event.data["message"]["data"])
+	data=data.decode("utf-8")
+
+	folder=data
+
 	#Get properties
-	props=getProperties(PROPERTIES_FILE_NAME)
+	props=get_properties(PROPERTIES_FILE_NAME)
 	#print(props)
-	
+
 	#Create directory structure for tweets files normalized
-	parent_path = os.getcwd()
+	#parent_path = os.getcwd()
 	#print(parent_path)
-	origin_path=props["data_path"]+props["origin_folder"]+props["folder_name"]
+	#origin_path=props["data_path"]+props["origin_folder"]+props["folder_name"]
+	origin_path=props["origin_folder"]+folder
+	origin_path =origin_path.replace("\\","/")
 	#print(origin_path)
-	destination_path ='..\..\..'+props["destination_folder"]+props["folder_name"]
+	#destination_path ='..\..\..'+props["destination_folder"]+folder
 	#print(destination_path)
-	
-	try:
-		os.mkdir(destination_path)
-	except OSError:
-		print ("Creation of the directory %s failed" % str(destination_path))
-	else:
-		print ("Successfully created the directory %s " % str(destination_path))
 
-	destination_path = props["data_path"]+props["destination_folder"]+props["folder_name"]
+	# 	try:
+	# 		os.mkdir(destination_path)
+	# 	except OSError:
+	# 		print ("Creation of the directory %s failed" % str(destination_path))
+	# 	else:
+	# 		print ("Successfully created the directory %s " % str(destination_path))
+
+	#destination_path = props["data_path"]+props["destination_folder"]+folder
+	destination_path = props["destination_folder"]+folder
+	destination_path =destination_path.replace("\\","/")
 	#print(destination_path)
-	print ("The current working directory is %s" % parent_path)
-	print ("The normalized json destination directory is %s" % destination_path)
-	
+	#print ("The current working directory is %s" % parent_path)
+	#print ("The normalized json destination directory is %s" % destination_path)
+
 	#Normalize tweets files
-	normalizeTweetsFiles(props,origin_path,destination_path)
+	#normalizeTweetsFiles(props,origin_path,destination_path,folder)
 
-if __name__ == '__main__':
-	app()
+	#Send message to topic
+	send_pubsub_message(folder)
+
+# if __name__ == '__main__':
+# 	app()
